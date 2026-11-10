@@ -1,0 +1,17 @@
+import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
+const here = path.dirname(fileURLToPath(import.meta.url));
+const repo = path.resolve(here, '../..');
+const out = path.join(here, 'public/files');
+const manifest = JSON.parse(await readFile(path.join(repo, 'package.json'), 'utf8'));
+const old = JSON.parse(await readFile(path.join(out, 'release.json'), 'utf8'));
+const previous = [old, ...(old.previous || [])].map(({ previous, ...release }) => release);
+if (previous.some(r => r.version === manifest.version)) throw new Error('Published versions are immutable; bump package.json first');
+await mkdir(out, { recursive: true });
+const [pack] = JSON.parse(execFileSync('npm', ['pack', '--json', '--pack-destination', out], { cwd: repo, encoding: 'utf8' }));
+const now = new Date();
+await writeFile(path.join(out, 'release.json'), JSON.stringify({ previous, version: manifest.version, manifest, filename: pack.filename, integrity: pack.integrity, shasum: pack.shasum, publishTimestamp: Math.floor(now.getTime()/1000), publishTime: now.toISOString() }, null, 2) + '\n');
+await copyFile(path.join(repo, 'assets/zhuangzai-3d.png'), path.join(out, 'zhuangzai-avatar.png'));
+console.log(JSON.stringify({version: pack.version, filename: pack.filename, size: pack.size, integrity: pack.integrity}));

@@ -4,19 +4,19 @@
 
 Zhuangzai Delivery Workbench — an MIT-licensed DSH plugin for construction delivery management with YiQiZhuang.
 
-面向工程负责人、项目经理和客户成功人员：通过自然语言查询一起装数据，分析工地重点、问题、人员与派工、工期、验收、现场、设备、业主关注和管理报告。包含装仔角色、10 项技能及 OAuth 代理；不包含客户数据或账户凭据。
+面向工程负责人、项目经理和客户成功人员：通过自然语言查询一起装数据，分析工地重点、问题、人员与派工、工期、验收、现场、设备、业主关注和管理报告。包含装仔角色、1 个综合技能（10 类场景，保留原技能名兼容入口）及 OAuth 代理；不包含客户数据或账户凭据。
 
 ## 安装与登录
 
-### 社区开源版 0.4.3
+### 社区开源版 0.5.0
 
 ```sh
-dsh plugin --profile desktop add 'git+https://github.com/maverikhe-cpu/zhuangzai-dsh-workbench.git#v0.4.3'
+dsh plugin --profile desktop add 'git+https://github.com/maverikhe-cpu/zhuangzai-dsh-workbench.git#v0.5.0'
 ```
 
-安装后按 DSH 提示启用插件或重启，再打开侧栏的「装仔工作台」。本版本基于已发布的 0.4.2，新增开源许可和社区分发资料，运行功能保持一致。
+安装后按 DSH 提示启用插件或重启，再打开侧栏的「装仔工作台」。本版本同步派工缺口汇总、项目经理负荷汇总和设备台账规则。自然语言提问自动选择场景，优先汇总取数，再下钻重点明细。
 
-### 一起装索引版 0.4.2
+### 一起装索引版 0.5.0
 
 
 本版适用于 DeepSeek Harness 桌面版 0.2.2-rc.1，需要 Node.js 22 或更高版本。打开「插件」，在实验性插件中启用「自定义插件索引」，进入「发现」，添加索引 `https://plugins.1qizhuang.win/index.json`，搜索「装仔」并安装。安装完成后如界面提示重启，请重启 DeepSeek Harness。
@@ -52,7 +52,7 @@ node "$HOME/.dsh/profiles/desktop/node_modules/@yiqizhuang/zhuangzai-dsh-workben
 npm test
 ```
 
-测试覆盖 OAuth 刷新、并发、失败恢复，以及工作台的场景入口、当前会话续聊、新建会话和草稿处理。OAuth 测试使用模拟响应和临时目录，不访问客户系统。
+需要 Node.js 和 Python 3。测试覆盖派工缺口计算、分页完整性、技能引用与角色一致性，以及 OAuth 刷新、并发、失败恢复，以及工作台的场景入口、当前会话续聊、新建会话和草稿处理。OAuth 测试使用模拟响应和临时目录，不访问客户系统。
 
 本仓库是可独立安装的 DSH bundle，入口为 `cordis.patch.yml`，客户端界面为 `lib/client.js`，场景技能位于 `presets/zhuangzai/skills/`。
 
