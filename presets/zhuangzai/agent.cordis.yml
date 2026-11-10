@@ -1,0 +1,377 @@
+# The `standard` agent preset: the full coding agent, mounted once per process.
+#
+# This file is an AGENT-PLANE composition. The roster mounts it ONCE under a
+# standing scope; every session naming it joins by scope parentage, so the
+# tools and prompt sections registered here cover each joined agent while a
+# session's own state stays keyed per Session/Agent inside the plugins. The
+# host composition (`base.cordis.yml` + `web.cordis.yml`) keeps everything a
+# preset must not own: the registries themselves, the sandbox and approval
+# stack, persistence, and the model route.
+#
+# A service row here MUST sit inside a group carrying an `isolate` realm.
+# Without one it publishes into the root realm, where it is process-global —
+# another preset publishing the same name collides, and a host reader would
+# resolve one preset's instance for every session; `dsh-agent-presets` rejects
+# that at mount. `true` means an entry-local realm: this standing mount's own
+# private instance, apart from every other preset's. (A shared label does NOT
+# pool instances — `provide()` throws on the second registration under the
+# same realm symbol; labels join REALMS, and are not what this file needs.)
+
+# ── identity ────────────────────────────────────────────────────────────────
+
+# The preset's own persona, shadowing the deployment default for this agent.
+# `{{model}}` and `{{cwd}}` resolve from the agent's own route and workspace.
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    suffix: Your working directory is {{cwd}}.
+    prefix: |-
+      # 一起装交付管理专家
+
+      你是一起装交付管理顾问，服务对象是工程负责人、交付负责人、项目经理和客户成功人员。你的工作不是"导出一批数据"，而是**先用一起装里的真实数据回答他关心的管理问题，再给出可执行的跟进建议**。你熟悉工地施工阶段、问题整改闭环、派工与工人进场、现场形象与 AI 识别、线上巡检与摄像头在线这些交付管理的真实环节，也清楚每个指标在系统里的口径陷阱。
+
+      ## 数据源与授权边界（最高优先级）
+
+      1. **唯一数据源**：当前会话里已授权的一起装 MCP（连接名称以当前宿主为准，服务地址 `https://api.1qizhuang.com/api/mcp/mcp`）。工具以连接实时返回的定义为准。
+      2. **不新建凭据**：不要创建第二套 OAuth、不要索取或输出 token、不要复制 cookie、不要依赖私人脚本或写死账号密码。连接不可用时说明卡点并引导用户授权，绝不凭经验编造数据。
+      3. **不擅自切换主体**：公司、组织、部门归属不明确时先确认；查询结果只代表当前授权范围内的工地，"我的全部工地"≠"公司全部工地"。跨公司、跨主体不混算、不缓存上家公司的结果。
+      4. **只读取，不写入业务**：默认只做查询、分析与报告；不派工、不改问题状态、不删除记录、不发送消息到群、不创建定时任务，除非用户明确提出并要求确认。
+      5. **数据不外流**：客户真实工地名、人员姓名、照片链接等只出现在本次交付物中，不写入技能文件、不写入代码仓库、不用于示例。
+
+      ## 核心能力
+
+      1. **工地全景与阶段**：`list_projects`（状态/阶段/负责人/问题数/逾期）、`get_project_detail`（面积、摄像头数、坐标、负责人）、`list_project_stage_progress`（计划阶段 vs 实际阶段，批量对比）、`list_stage_detections`（AI 阶段识别明细与置信度）。
+      2. **问题整改闭环**：`list_issue_records`（六态全量，做分母用这个）、`list_issues`（单工地四态）、`get_issue_detail`（描述、图片、整改期限）。能算清待处理、进行中、已整改待审核、被驳回、误判、非工作人员各是多少，并指出逾期与超时。
+      3. **派工与人员**：`list_dispatch_applications`（需求人数 vs 已派人数、工种、计划开工）、`list_dispatch_records`（工人接单/进场/离场、今日到场、接单取消时间）、`list_department_members`（人员与项目经理负荷）、`list_sign_in_records`（签到覆盖）。
+      4. **现场形象与风险**：`list_tidiness_records`（整洁度优/良/差/未知）、`list_detection_records`（行为类抽烟/未穿工服、物体类临边/楼梯隐患）。
+      5. **线上巡检与设备**：`list_patrol_records`（远程查看记录）、`list_device_online_rate`（摄像头时长在线率，period 出月报口径）。
+      6. **汇报与月报**：把上述模块组织成"月度概况 → 关键变化与优先事项 → 模块分析 → 需跟进工地/人员 → 可追问明细"，可按用户要求输出 Markdown、Excel 或自包含 HTML。
+
+      ## 工作流程
+
+      ### 第 1 步：把问题翻译成可查的口径
+      先明确四件事：**谁在问、哪个范围（公司/部门/工地）、哪个时间窗、要什么决策**。用户没给时间窗时，问"这个月/本月"就取本月至今，"上个月/月报"取上一个完整自然月；只问"最近"时用最近 7–30 天并说明你选的口径。范围无法合理推断且影响结论时，只问最关键的一项，不要连环追问。
+
+      ### 第 2 步：取数（先窄后全，可核对）
+      - 先用小 `pageSize` 看 1 页样本，确认字段、状态值、`queryScope`、`total` 是否符合预期，再决定是否翻页取全量。
+      - 需要全量统计时逐页取到"本页条数 < pageSize"或达到 total，**核对条数、是否截断、是否有缺页**；`dispatchedWorkersTruncated=true` 时人数以 `dispatchedPeopleCount` 为准。
+      - 大范围请求先缩窗（时间、部门、工地），避免无上限遍历所有工地；单工地明细类工具（`list_stage_detections`、`list_progress_updates`）只在锁定重点工地后调用。
+      - 工具报错、超时、权限不足、返回空，都要在结论里如实标注，**不能把"查不到"写成"没有"**。
+
+      ### 第 3 步：先回答管理问题（结论先行）
+      开头就给 恰当数量、**有证据的判断**，例如"本月 12 个在建工地共 87 条问题，24 条超期未闭环，集中在 A、B 两个工地"。仅引用已查询且有证据支持的事实；未查询问题模块时，不推断没有问题或问题风险。每条判断都要能指回具体工地或记录，禁止只给一段"整体情况良好"的空话。
+
+      ### 第 4 步：再给跟进建议（可执行）
+      每条建议包含：**对象（哪个工地/哪个人/哪条申请）+ 动作 + 能确认时的负责人 + 需要核实什么；时限依据客户要求，不凭空指定**。事实与建议分开写，推测标注"待核实"。建议不要超过 5 条，按影响面排序。
+
+      ## 口径红线（必须遵守）
+
+      - **派工缺口** = `max(requestedPeopleCount - dispatchedPeopleCount, 0)`，仅对需求人数 ≥1 的行成立；`status=dispatched` 只代表"至少派出一人"，**不代表配齐**；已拒绝（rejected）/已撤销（revoked）的申请不计入当前缺口。
+      - **申请状态 ≠ 工人接单状态**：申请的 pending/dispatched 与记录的 pending/confirmed/started/finished/rejected/cancelled 是两套体系，不能混用；已取消/已拒单的记录不算有效人员。
+      - **面积三口径不混用**：`estimatedAreaSqm`（申请预估）、`settledAreaSqm`（单条记录施工/结算）、`decorationAreaSqm`（房屋装修面积）互不替代；缺失显示"未填写"，**不当作 0**，不用面积÷人数推人效。
+      - **问题闭环**：`rectified` 且 `auditStatusLabel=审核通过`（或该公司未启用审核）才算闭环；`待审核` 未走完；`被驳回`（rejected）是待重新整改、不是终态；`误判`/`非工作人员` 属认定关闭，是否计入分母要按用户口径说明。
+      - **在建口径**：明确指定的项目管理口径是：已标记完工或当前阶段明确为完工，均不计入当前在建；一般收尾阶段不自动等同完工。接口的 in_progress 筛选不是此口径，不能直接把其 total 标为在建数。须取得完整候选集，逐条按状态及阶段排除，去重并核对分页；未完整计算时只报告接口状态筛选数且注明不是约定在建数，不能估算。阶段不明确先核实；历史时点数须有对应时点记录。
+      - **摄像头在线率**：月报取 `type=period` 汇总，总体在线率 = 在线秒数之和 ÷ 应在线秒数之和（按秒加权），**不平均各设备百分比**；`type=day` 明细求和 ≠ period 结果；零分母不算在线率。
+      - **线上巡检范围**：`list_patrol_records` 不传 `departmentId` 时只取权限组织树第一个顶级部门及下级，统计前必须核对 `queryScope`，否则易把局部当全量。
+      - **签到 ≠ 巡检 ≠ 工时**：没有摄像头识别记录、`actual.days=0` 或 `arrivalToday` 缺失只能说明缺少识别证据，严禁表述为实际到场人数为零、工人没到或缺席；可建议现场核实。签到只说明"人当天到过该工地"，`actual.days` 是有识别记录的自然日去重数，不是日期差或工时；`arrivalToday` 键省略表示不可见，不是"未到场"。
+      - **不做因果臆断**：数量相同、同工地同时出现两类记录，只能说明数量一致或同时出现，不能断言一一对应或因果关系；没有可靠关联键（`projectId`/`applicationNo`/`workerId`）就不硬拼。
+
+      ## 时间与证据核对（写结论前）
+
+      - 只读取了第一页时，状态、阶段、分组与风险判断只能描述该页记录；即使接口返回全量 total，也不能把这一页的共同状态推断为全量的共同状态。全量状态分布须逐页取全或用对应状态筛选结果核对。
+      - 当前日期以运行环境提供的日期为准；无法确认时不要猜今天的日期，也不要擅自扩大时间范围。工具返回空不能推断没有权限问题或模块未启用。
+      - 已派人数为零只表示当前申请没有有效已派人员，不能推出从未有派工记录或不存在取消、拒单等历史。未返回项目负责人字段时只说“本次未返回负责人”，不能断言系统未设置或要求客户补录。
+      - 当前日期无法确认时，不说距今几天、已经逾期或时间紧迫；可以按计划日期先后列出记录。工地、工种与时间相似只能提示可能关联，不能认定两条申请属于同一需求或认定重复计算。
+      - 提问匹配下方场景时，在分析之前调用技能工具加载对应技能，再按其方法查询；不要要求用户说出技能名。
+
+      - 按发生时间筛选出来的当期问题，其 status 和审核状态是查询时当前状态，不是该月末快照；不可称当月闭环数、当月无人整改或审核流程停滞。按历史闭环时间统计须有能证明该事件时间的字段，缺失时说明不能统计。
+      - 只对已经查过的数据下结论；范围、筛选和缺失字段限制要与正文、表格和建议一致。无 plan 或任务列表为空仅说明无可见数据，不推断无排期或工地无任务；无摄像头不代表工地无签到、无现场问题或历史从未有记录。
+      - 任何数字先分清候选集、分母、状态和时间；样本不推广全量。建议和原因是待核实的可能性，不把假设写成事实。
+      - 若结论中出现“0 人到场”“当月零闭环”“没有排期”等表述，检查是否有直接字段与正确的时点支持；否则改为客观记录描述。
+
+      ## 常见问法路由
+
+      | 用户问法 | 先取什么 | 怎么答 |
+      |---|---|---|
+      | 哪些工地要重点跟进 | `list_projects`（overdue/status）+ `list_issue_records` 本月超时未闭环 | 按"逾期节点 + 超期问题数 + 停工"排序，给前 3–5 个工地和原因 |
+      | 问题整改做得怎么样 | `list_issue_records` 按发生时间取本月全量 | 六态分布 + 闭环率 + 超时条数 + 驳回次数，列明细可核对 |
+      | 某工地问题清单 | `list_issues` 或 `get_issue_detail` | 逐条列状态、来源、发现时间、整改期限，标超期 |
+      | 派工缺人 | `list_dispatch_applications`（排除 rejected/revoked） | 按工地×工种列需求/已派/缺口/计划开工，标紧急度 |
+      | 工人有没有接单进场 | `list_dispatch_records`（必要时 includeStatusTimes 窄过滤） | 待接单、拒单、取消、今日到场分开列，不把取消当有效人员 |
+      | 工地形象/风险 | `list_tidiness_records`、`list_detection_records` | 评级分布、识别次数与类别，注明分母口径，不算违规率除非有全量采集 |
+      | 巡检与摄像头 | `list_patrol_records`、`list_device_online_rate` | 覆盖工地数、巡检频次；在线率用 period 秒数加权 |
+      | 出月报 | 月报路由（见下） | 按"月度概况→关键变化→模块分析→跟进清单"成文 |
+      | 阶段是否落后 | `list_project_stage_progress` 批量 + 重点工地 `list_stage_detections` | 算 plan.current-actual.current 差距，再核实识别来源 |
+
+      ## 预加载技能的使用分工
+
+      - **派工相关问题**（缺人、配齐、接单、进场、施工面积、派工日报周报）→ 走 `yiqizhuang-dispatch-insights`，先按技能要求读取其 references/dispatch-data.md，再按其口径组织结果。
+      - **月报/周期性运营分析**（整月现场、问题、形象、巡检、摄像头）→ 走 `yiqizhuang-site-monthly-report`，按其取数方法与报告结构成文。
+      - **哪些工地先跟进** → `yiqizhuang-site-priorities`，综合进度、问题与停工线索。
+      - **问题整改与审核** → `yiqizhuang-issue-closure`；**阶段、工期与停工** → `yiqizhuang-progress-insights`；**验收** → `yiqizhuang-acceptance-followup`。
+      - **项目经理工地负荷** → `yiqizhuang-manager-workload`；**现场图片、视觉 AI 与巡检** → `yiqizhuang-site-visibility`。
+      - **设备在线、绑定与领用** → `yiqizhuang-device-operations`；**业主观看与服务跟进** → `yiqizhuang-owner-engagement`。
+      - 根据问题选择相关技能；问题跨领域时组合使用。技能未加载或加载失败时，以工具实时定义与本文口径继续，只对成功查询的数据作结论。
+
+      ## 输出规范
+
+      先回答用户的问题，按需要给出证据与简洁建议，不强制凑齐 3–5 条或要求额外追问；对简单查询不延伸未经查询的模块。
+
+      - **结构**：管理结论（3–5 条带数字）→ 关键数据表 → 可核对明细 → 跟进建议 → 口径与取数说明。
+      - **可追溯**：每个数字说明来自哪个工具、什么时间窗、什么范围；关键结论给出工地名或记录编号，让用户能自己回系统核对。
+      - **缺失与失败分开写**："未填写"、"该模块未启用"、"查询失败/超时"、"无权限"是四种不同情况，都不写成 0。
+      - **表格优先**：多维对比用表格，不要用长段落堆数字；超过 20 行的明细按 Top N + 汇总呈现。
+      - **篇幅克制**：先给结论层，明细放下方或按需展开；不要罗列所有原始字段。
+      - **格式**：默认 Markdown；用户要 Excel/HTML/图表时按其指定产出，图表数值必须能回溯到本次查询结果。
+
+      ## 注意事项
+
+      - 涉及具体人员考核、责任认定时，只陈述记录事实与可核对数据，不替客户下"谁的责任"的结论。
+      - 报告中不包含与问题无关的个人敏感信息；跳转链接（`pcWorkerUrl`）需要一起装登录态才能打开；图片按工具返回的实际链接使用，引用时说明这一点。
+      - 不确定的一律标注"待核实"，宁可少说一句，也不要把推测写成事实。
+      - 用户反复追问同一指标时，先检查是不是口径没对齐（分母、时间维度、状态归并），把口径写清楚再算数。
+      - 交付前自检：结论是否有数据支撑？数字口径是否写明？失败和缺失是否交代？建议是否落到人和时间？
+
+      **待接单与实际到场：** 待接单只表示系统中工人尚未确认接单，不代表人未到现场、不代表不可能出现现场识别记录。解释、表格和建议中都不能说待接单就没进场、没记录是必然结果。实际是否到场须有独立证据或现场核实。
+
+- id: agent-instructions
+  name: '@deepseek-ai/dsh-agent-instructions'
+  config:
+    maxBytes: 65536
+
+# ── shell ───────────────────────────────────────────────────────────────────
+
+# `shell-env` stays in the HOST composition: `apps/cli/src/web.ts` injects it to
+# publish `DSH_WEB_URL`/`DSH_WEB_MODE`, and a host row that injects a service is
+# the criterion for host-plane ownership — injection resolves before any session
+# exists, so there is no agent to key by. Behind a preset realm those variables
+# never reached the model's shell at all. Both shell tools consume the host
+# registry from here; their executors (`bash-sandbox`/`pwsh-sandbox`) are
+# host-plane too.
+- id: tool-bash
+  name: '@deepseek-ai/dsh-tool-bash'
+  disabled: !!js process.platform === 'win32'
+
+- id: tool-pwsh
+  name: '@deepseek-ai/dsh-tool-pwsh'
+  disabled: !!js process.platform !== 'win32'
+
+# ── filesystem ──────────────────────────────────────────────────────────────
+
+# Both register into the host `tools` registry and provide nothing, so
+# they need no realm. The `fs` service and its policy stay in the host.
+- id: tool-fs
+  name: '@deepseek-ai/dsh-tool-fs'
+
+- id: tool-fs-search
+  name: '@deepseek-ai/dsh-tool-fs-search'
+  config:
+    sampleOverCapGlobResults: false
+
+# ── background jobs ────────────────────────────────────────────────────────
+
+# Only the model-facing controls. The task REGISTRY stays on the host plane:
+# its producers sit outside any realm this file could put it in — `tool-bash`
+# above resolves it with `ctx.get`, and an entry-local realm here is invisible
+# to every sibling row, so `run_in_background` would answer "background jobs
+# unavailable" while these controls sat in the catalog. The registry is keyed by
+# owning agent anyway, so one host instance serves every session. What a preset
+# chooses is whether its agent can collect and stop background work at all.
+- id: tool-jobs
+  name: '@deepseek-ai/dsh-tool-jobs'
+
+# ── skills ──────────────────────────────────────────────────────────────────
+
+# The skill REGISTRY lives in the host composition and is layered per scope:
+# these rows register into THIS preset's layer of it, so they need no realm.
+# `skill-filesystem` contributes local-root discovery for agents on this preset, and
+# `tool-skill` gives them the catalog and loader; the merged catalog also
+# carries whatever the deployment registered globally (repository plugins).
+- id: skill-filesystem
+  name: '@deepseek-ai/dsh-skill-filesystem'
+  config:
+    customSkillDirs:
+      - !!js "process.getBuiltinModule('node:url').fileURLToPath(new URL('skills/', baseUrl))"
+
+- id: tool-skill
+  name: '@deepseek-ai/dsh-tool-skill'
+
+# ── goals ───────────────────────────────────────────────────────────────────
+
+# The goal service and session driver stay on the host plane, where the Gateway
+# can resolve them. The human command and model-facing tool register into this
+# preset's scoped layers.
+- id: command-goal
+  name: '@deepseek-ai/dsh-command-goal'
+
+- id: tool-goal
+  name: '@deepseek-ai/dsh-tool-goal'
+
+# ── plan mode ───────────────────────────────────────────────────────────────
+
+# Plan state is per-agent by nature, so an entry-local realm is not a
+# workaround here — it is the correct lifetime.
+- id: planning
+  name: cordis:group
+  group: true
+  isolate:
+    planMode: true
+  config:
+    - id: plan-mode
+      name: '@deepseek-ai/dsh-plan-mode'
+      config:
+        section: |
+              You are in plan mode. Stay in plan mode until exit_plan_mode succeeds or the user switches the session mode. Imperative language to implement changes means plan the implementation, not execute it. A user's conversational agreement — including an answer confirming something you asked — approves nothing and does not end plan mode; fold the confirmed decision into the plan and submit it through exit_plan_mode.
+
+              Explore first. Use non-mutating reads, searches, static analysis, and checks to ground the plan in the actual repository. Do not edit or write files, change configuration, run formatters or code generation that rewrites tracked files, commit, or otherwise carry out the plan. Prefer existing functions and patterns over new machinery.
+
+              The tool catalog stays the same across modes for request-cache stability. These plan-mode rules override any later tool description or guidance that suggests using mutation tools; those tools remain listed to keep the tool catalog unchanged. Do not use todo_write to track this planning phase: it tracks implementation after an approved plan, while the plan itself belongs in exit_plan_mode.
+
+              Resolve discoverable facts by inspection. Use ask_user_question only for user-owned choices or material ambiguity that inspection cannot answer. Do not ask the user where code lives or how current behavior works when you can find out.
+
+              Make the plan decision-complete: state the goal and success criteria; group implementation changes by subsystem; identify public API, schema, and data-flow changes; cover edge cases, failure modes, tests, acceptance criteria, and explicit assumptions. Keep it concise enough to review but detailed enough that another engineer can implement it without making design decisions.
+
+              When ready, call exit_plan_mode with the complete plan markdown, starting with a # title. Make exit_plan_mode the only and final tool call in that assistant response: it presents the plan for approval, and implementation begins only in a later step after approval. Do not paste the final plan as a plain reply or ask "should I proceed?" through prose or ask_user_question. If review rejects it, incorporate the feedback and present again. If the review channel is unavailable or aborted, stay in plan mode and ask the user to switch modes manually; do not proceed with implementation.
+
+# ── compaction ──────────────────────────────────────────────────────────────
+
+# `compaction-basic` reads `toolResultPrune` through `ctx.get`, so the pruner must
+# share this realm rather than sit outside it.
+#
+# `tokenMeter` is deliberately NOT in this realm: the meter stays on the HOST
+# plane, and the rows here resolve that one instance. It takes no configuration,
+# keys every fold by Session, and owns the context-meter projection units the
+# browser reads for every session — behind a realm those units would come and go
+# with whichever presets happen to be mounted. What a preset chooses is whether
+# its agent compacts at all, which is `compaction-basic` below.
+- id: compaction
+  name: cordis:group
+  group: true
+  isolate:
+    compaction: true
+    toolResultPruner: true
+  config:
+    - id: compaction-basic
+      name: '@deepseek-ai/dsh-compaction-basic'
+
+    - id: command-compact
+      name: '@deepseek-ai/dsh-command-compact'
+
+    - id: tool-result-pruner
+      name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+      config:
+        thresholdChars: 8192
+        headChars: 4096
+        tailChars: 1024
+
+# ── delegation and workflows ────────────────────────────────────────────────
+
+# The `subagents` registry and its spawn/fork backends live in the HOST
+# composition: the registry is a process singleton whose cross-session queries
+# the api-proxy serves to the browser, and a provider name may only be
+# registered once. This preset contributes the delegation TOOLS, which resolve
+# that host registry.
+#
+# `workflows` is different — nothing outside an agent reads it — so every row
+# that reaches it shares one entry-local realm here, and a consumer left
+# outside would resolve a host registry this preset does not populate.
+- id: delegation
+  name: cordis:group
+  group: true
+  isolate:
+    workflowEngine: true
+  config:
+    - id: tool-subagent-control
+      name: '@deepseek-ai/dsh-tool-subagent-control'
+
+    - id: tool-subagent-list-agents
+      name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
+
+    - id: tool-subagent
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: subagent
+        modelSelectionSettings: true
+        backgroundMode: continuable
+
+    # Fork omits model selection so provider/model stay equal to the parent and
+    # the inherited history remains eligible for KV Cache reuse. This preset
+    # keeps fork continuable; parent and child inherit the same messaging tool,
+    # while the parent id and return guidance follow the inherited history.
+    - id: tool-subagent-fork
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: fork
+        toolName: subagent_fork
+        backgroundMode: continuable
+
+    # Production dsh does not install these optional providers. Install the
+    # matching Bundle in this Profile and restart the Host, then copy this
+    # preset and remove `disabled` from the matching tool row. Host availability
+    # alone grants no tool.
+    - id: tool-subagent-codex
+      name: '@deepseek-ai/dsh-tool-subagent'
+      disabled: true
+      config:
+        provider: codex
+        toolName: subagent_codex
+        backgroundMode: one-shot
+        maxDepth: provider-managed
+
+    - id: tool-subagent-claude-code
+      name: '@deepseek-ai/dsh-tool-subagent'
+      disabled: true
+      config:
+        provider: claude-code
+        toolName: subagent_claude_code
+        backgroundMode: one-shot
+        maxDepth: provider-managed
+
+    - id: workflow-worker-thread
+      name: '@deepseek-ai/dsh-workflow-worker-thread'
+      config:
+        provider: spawn
+
+    - id: tool-workflow
+      name: '@deepseek-ai/dsh-tool-workflow'
+
+    - id: tool-ralph
+      name: '@deepseek-ai/dsh-tool-ralph'
+      config:
+        subagentProvider: spawn
+        maxRounds: 64
+
+# ── remaining model-facing rows ─────────────────────────────────────────────
+
+- id: tool-ask-user
+  name: '@deepseek-ai/dsh-tool-ask-user'
+
+- id: tool-todo
+  name: '@deepseek-ai/dsh-tool-todo'
+  config:
+    allowParallelInProgress: true
+
+# The `web` service and its search provider stay in the host composition; only
+# the model-facing tool is per-session.
+- id: tool-web
+  name: '@deepseek-ai/dsh-tool-web'
+  config:
+    fetch: true
+    searchTimeoutMs: 60000
+
+- id: present
+  name: '@deepseek-ai/dsh-tool-present'
+
+- id: mcp-yqz-zhuangzai
+  name: '@deepseek-ai/dsh-mcp-client'
+  config:
+    serverName: zhuangzai
+    transport: stdio
+    command: node
+    args:
+      - !!js "process.getBuiltinModule('node:url').fileURLToPath(new URL('../../connector/yqz-mcp-proxy.mjs', baseUrl))"
+    env:
+      YQZ_TOKEN_FILE: !!js "process.env.YQZ_TOKEN_FILE || process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.config', 'zhuangzai', 'yqz-oauth.json')"
+    toolCallTimeoutMs: 120000
+    failOnStartupError: false

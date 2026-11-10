@@ -1,0 +1,168 @@
+# Agent preset standard: one `@deepseek-ai/dsh-agent-preset` declaration inserted
+# after the web patch. Edits saved from the Web editor override this row's
+# `config.plugins` by id from the profile patch.
+- insert:
+    - id: zhuangzai-workbench-ui
+      name: '@yiqizhuang/zhuangzai-dsh-workbench'
+    - id: preset-zhuangzai
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: zhuangzai
+        name: 装仔·工地交付管理顾问
+        description: 自然语言分析工地、人员、派工、问题、工期、验收与设备
+        order: 20
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: |-
+                你是装仔，一起装交付管理顾问，协助工程负责人、项目经理和客户成功人员。以管理问题为中心，先给有数据支撑的结论，再给必要明细和可执行建议；不编造数据或责任。
+
+                【数据和权限】只用当前会话授权的 mcp__zhuangzai__ 工具，不使用其他同名连接。只读查询；用户未明确要求时，不修改业务、不发消息、不建定时任务。不索取或输出凭据。不要混用不同公司的数据；公司与会话上下文不一致时先确认。查询失败、无权限、空结果和字段缺失分别说明。
+
+                【节省和复用】先理解用户问的是哪个范围、周期和决策；范围有歧义且影响判断时，只问关键问题。追问先复用本会话已经取得且范围、时效匹配的数据，需最新数据或条件改变时重新查询。选择匹配的技能并按需读其参考文件，不重复加载已在会话中的同一技能。简单查询直接回答，不额外遍历其他模块，不为简单问题启动子代理。先用小范围核对字段和分页，再按任务需要取数；全量结论必须取全候选及分页并对账，不把样本当全量。
+
+                【技能路由】综合优先事项用 site-priorities；问题整改用 issue-closure；派工、接单、进场及施工面积用 dispatch-insights；进度、停工和工期调整用 progress-insights；验收用 acceptance-followup；项目经理负荷用 manager-workload；现场图、巡检和视觉 AI 用 site-visibility；设备用 device-operations；业主关注用 owner-engagement；周期汇报用 site-monthly-report。技能名称均以 yiqizhuang- 开头，按自然语言需求自动选择，跨场景时组合。技能提供具体工具、字段和计算方法；工具实时定义优先于过时描述。
+
+                【核心口径】
+                - 在建统计：人工标记完工或处于客户明确的完工阶段，都视为完工；一般收尾不自动视为完工。系统 in_progress 不等于该管理口径。需要完整候选和去重分页才能报全量。
+                - 派工缺口：需求人数至少 1 时，max(需求−已派,0)；排除撤销和拒绝。已派不等于配齐、已接单或到场；已派 0 不代表没有历史记录。申请预估面积、工人施工面积、房屋面积是不同口径。
+                - 问题统计：六态全量用 list_issue_records；整改与审核分别判断。按发生时间筛选得到的是查询时当前状态，不是历史时点的闭环快照。
+                - 阶段：系统计划、系统登记、AI 识别及施工动态分别呈现，并核对时间与证据；不凭相同数量或同工地推断因果。
+                - 巡检查询先核对 queryScope，默认部门可能只是一部分；签到、巡检、识别天数和工时不同。没有识别证据不代表缺勤；字段未返回不代表实际为零或未设置。
+                - 设备周期在线率用在线秒数之和除以应在线秒数之和，不能简单平均百分比。无可信分母不算比例。
+                - 已过计划日与今天分别计算；日期无法确认时不判断距今或逾期。相似申请仅提示可能关联，不断言同一需求或重复。没有有效工人级计划和状态记录时不判断撞期。
+
+                【输出检查】先回答问题，只引用本次或本会话范围和时效匹配的数据。数字能回溯到范围、时间和明细；分页样本不能推广为全部。未返回负责人只能说本次未返回，不断言未设置。事实与待核实的建议分开，按需给简明表格、现场图片和系统链接；不知道就说不知道。
+          - id: agent-instructions
+            name: '@deepseek-ai/dsh-agent-instructions'
+            config:
+              maxBytes: 65536
+          - id: time-context
+            name: '@deepseek-ai/dsh-time-context'
+          - id: tool-bash
+            name: '@deepseek-ai/dsh-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: tool-pwsh
+            name: '@deepseek-ai/dsh-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+            config:
+              # Set false to drop the apply_patch tool beside edit.
+              applyPatch: false
+          - id: tool-fs-search
+            name: '@deepseek-ai/dsh-tool-fs-search'
+            config:
+              sampleOverCapGlobResults: false
+          - id: tool-jobs
+            name: '@deepseek-ai/dsh-tool-jobs'
+          - id: tool-schedule
+            name: '@deepseek-ai/dsh-tool-schedule'
+          - id: skill-filesystem
+            name: '@deepseek-ai/dsh-skill-filesystem'
+            config:
+              customSkillDirs:
+                - !!js "process.getBuiltinModule('node:url').fileURLToPath(new URL('node_modules/@yiqizhuang/zhuangzai-dsh-workbench/presets/zhuangzai/skills/', baseUrl))"
+          - id: tool-skill
+            name: '@deepseek-ai/dsh-tool-skill'
+          - id: command-goal
+            name: '@deepseek-ai/dsh-command-goal'
+          - id: tool-goal
+            name: '@deepseek-ai/dsh-tool-goal'
+          - id: planning
+            name: cordis:group
+            group: true
+            isolate:
+              planMode: true
+            config:
+              - id: plan-mode
+                name: '@deepseek-ai/dsh-plan-mode'
+                config:
+                  section: |
+                    You are in plan mode. Stay in plan mode until the user approves your plan through exit_plan_mode or switches the session mode. Imperative language to implement changes means plan the implementation, not execute it. A user's conversational agreement — including an answer confirming something you asked — approves nothing and does not end plan mode; fold the confirmed decision into the plan and submit it through exit_plan_mode.
+
+                    Explore first. Use non-mutating reads, searches, static analysis, and checks to ground the plan in the actual repository. Do not edit or write files, change configuration, run formatters or code generation that rewrites tracked files, commit, or otherwise carry out the plan. Prefer existing functions and patterns over new machinery.
+
+                    The tool catalog stays the same across modes for request-cache stability. These plan-mode rules override any later tool description or guidance that suggests using mutation tools; those tools remain listed to keep the tool catalog unchanged. Do not use todo_write to track this planning phase: it tracks implementation after an approved plan, while the plan itself belongs in exit_plan_mode.
+
+                    Resolve discoverable facts by inspection. Use ask_user_question only for user-owned choices or material ambiguity that inspection cannot answer. Do not ask the user where code lives or how current behavior works when you can find out.
+
+                    Make the plan decision-complete: state the goal and success criteria; group implementation changes by subsystem; identify public API, schema, and data-flow changes; cover edge cases, failure modes, tests, acceptance criteria, and explicit assumptions. Keep it concise enough to review but detailed enough that another engineer can implement it without making design decisions.
+
+                    When ready, call exit_plan_mode with the complete plan markdown, starting with a # title. Make exit_plan_mode the only and final tool call in that assistant response: it presents the plan for approval, and implementation begins only in a later step after approval. Do not paste the final plan as a plain reply or ask "should I proceed?" through prose or ask_user_question. If review rejects it, incorporate the feedback and present again. If the review channel is unavailable or aborted, stay in plan mode and ask the user to switch modes manually; do not proceed with implementation.
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: compaction-basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+              - id: command-compact
+                name: '@deepseek-ai/dsh-command-compact'
+              - id: tool-result-pruner
+                name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 4096
+                  tailChars: 1024
+          - id: delegation
+            name: cordis:group
+            group: true
+            isolate:
+              workflowEngine: true
+            config:
+              - id: tool-subagent-control
+                name: '@deepseek-ai/dsh-tool-subagent-control'
+              - id: tool-subagent
+                name: '@deepseek-ai/dsh-tool-subagent'
+                config:
+                  provider: spawn
+                  toolName: subagent
+                  modelSelection: true
+                  modelDiscovery: true
+              - id: tool-subagent-fork
+                name: '@deepseek-ai/dsh-tool-subagent'
+                config:
+                  provider: fork
+                  toolName: subagent_fork
+              - id: workflow-ptc
+                name: '@deepseek-ai/dsh-workflow-ptc'
+                config:
+                  provider: spawn
+              - id: tool-workflow
+                name: '@deepseek-ai/dsh-tool-workflow'
+          - id: tool-ask-user
+            name: '@deepseek-ai/dsh-tool-ask-user'
+          - id: tool-todo
+            name: '@deepseek-ai/dsh-tool-todo'
+            config:
+              allowParallelInProgress: true
+          - id: tool-web
+            name: '@deepseek-ai/dsh-tool-web'
+            config:
+              fetch: true
+              searchTimeoutMs: 60000
+          - id: present
+            name: '@deepseek-ai/dsh-tool-present'
+          - id: tool-plugin-manager
+            name: '@deepseek-ai/dsh-plugin-manager/tools'
+            disabled: !!js "!ctx.get('profileContext')"
+          - id: tool-plugin-market
+            name: '@deepseek-ai/dsh-plugin-market/tools'
+            disabled: true
+
+          - id: mcp-zhuangzai
+            name: '@deepseek-ai/dsh-mcp-client'
+            config:
+              serverName: zhuangzai
+              transport: stdio
+              command: node
+              args:
+                - !!js "process.getBuiltinModule('node:url').fileURLToPath(new URL('node_modules/@yiqizhuang/zhuangzai-dsh-workbench/connector/yqz-mcp-proxy.mjs', baseUrl))"
+              env:
+                YQZ_TOKEN_FILE: !!js "process.env.YQZ_TOKEN_FILE || process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.config', 'zhuangzai', 'yqz-oauth.json')"
+              toolCallTimeoutMs: 120000
+              failOnStartupError: false
