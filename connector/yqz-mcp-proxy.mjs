@@ -200,7 +200,7 @@ async function main() {
     log(`已就绪，转发到 ${ENDPOINT}`);
   } catch (err) {
     log(`未就绪：${err.message}`);
-    log('请先运行：node 05-技能库/一起装MCP/yqz-auth.mjs login');
+    log('请运行本插件 connector/yqz-auth.mjs login 完成授权');
     process.exit(1);
   }
 

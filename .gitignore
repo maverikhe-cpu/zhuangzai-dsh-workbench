@@ -4,3 +4,7 @@ node_modules/
 *.tgz
 .DS_Store
 coverage/
+__pycache__/
+*.pyc
+.wrangler/
+!distribution/dsh-index/public/files/*.tgz

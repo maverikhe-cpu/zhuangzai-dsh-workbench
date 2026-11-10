@@ -1,0 +1,171 @@
+{
+  "previous": [
+    {
+      "version": "0.4.2",
+      "manifest": {
+        "name": "@yiqizhuang/zhuangzai-dsh-workbench",
+        "version": "0.4.2",
+        "private": false,
+        "description": "装仔交付管理工作台：角色、场景技能和一起装 MCP",
+        "type": "module",
+        "main": "./lib/index.js",
+        "exports": {
+          ".": "./lib/index.js",
+          "./client": "./lib/client.js",
+          "./package.json": "./package.json"
+        },
+        "files": [
+          "cordis.patch.yml",
+          "presets",
+          "connector",
+          "README.md",
+          "lib"
+        ],
+        "dsh": {
+          "client": {
+            "platform": "web",
+            "inject": [
+              "@deepseek-ai/dsh-client-ui-sidebar",
+              "@deepseek-ai/dsh-client-ui-layout",
+              "@deepseek-ai/dsh-client-ui-workspace",
+              "@deepseek-ai/dsh-client-ui-session",
+              "@deepseek-ai/dsh-client-ui-conversation"
+            ]
+          },
+          "bundle": {
+            "patch": "./cordis.patch.yml"
+          }
+        },
+        "engines": {
+          "dsh": ">=0.2.2-rc.1 <0.3.0"
+        }
+      },
+      "filename": "yiqizhuang-zhuangzai-dsh-workbench-0.4.2.tgz",
+      "integrity": "sha512-IkmJJJFsqrlWaLDvp9IezX5r3vM8hQ32/7jSWP6vpwm+YdeBpB4s8vXXVYbTByOD3LVwvM+S61kcjVxZoA+v/A==",
+      "shasum": "5eee81959e8e0dd93a135551ab27983e952e5ded",
+      "publishTimestamp": 1794205582,
+      "publishTime": "2026-11-09T06:26:22.315Z"
+    },
+    {
+      "version": "0.4.1",
+      "manifest": {
+        "name": "@yiqizhuang/zhuangzai-dsh-workbench",
+        "version": "0.4.1",
+        "private": false,
+        "description": "装仔交付管理工作台：角色、场景技能和一起装 MCP",
+        "type": "module",
+        "main": "./lib/index.js",
+        "exports": {
+          ".": "./lib/index.js",
+          "./client": "./lib/client.js",
+          "./package.json": "./package.json"
+        },
+        "files": [
+          "cordis.patch.yml",
+          "presets",
+          "connector",
+          "README.md",
+          "lib"
+        ],
+        "dsh": {
+          "client": {
+            "platform": "web",
+            "inject": [
+              "@deepseek-ai/dsh-client-ui-sidebar",
+              "@deepseek-ai/dsh-client-ui-layout",
+              "@deepseek-ai/dsh-client-ui-workspace",
+              "@deepseek-ai/dsh-client-ui-session",
+              "@deepseek-ai/dsh-client-ui-conversation"
+            ]
+          },
+          "bundle": {
+            "patch": "./cordis.patch.yml"
+          }
+        },
+        "engines": {
+          "dsh": ">=0.2.2-rc.1 <0.3.0"
+        }
+      },
+      "filename": "yiqizhuang-zhuangzai-dsh-workbench-0.4.1.tgz",
+      "integrity": "sha512-odhMe4eWE/urbThEY1V0j1lvlOCL/5DDpR4hLKuCKZvEdj3H3ZEuctoXLNSF57maQgYMxLCLZZ4oMN6H03mxsg==",
+      "shasum": "26decd4cd038d88bcc17c585f742f258de624079",
+      "publishTimestamp": 1794205185,
+      "publishTime": "2026-11-09T06:19:45.279Z"
+    }
+  ],
+  "version": "0.5.0",
+  "manifest": {
+    "name": "@yiqizhuang/zhuangzai-dsh-workbench",
+    "version": "0.5.0",
+    "private": false,
+    "description": "装仔交付管理工作台：角色、场景技能和一起装 MCP",
+    "type": "module",
+    "main": "./lib/index.js",
+    "exports": {
+      ".": "./lib/index.js",
+      "./client": "./lib/client.js",
+      "./package.json": "./package.json"
+    },
+    "files": [
+      "cordis.patch.yml",
+      "presets",
+      "connector",
+      "README.md",
+      "lib",
+      "LICENSE",
+      "CHANGELOG.md",
+      "assets"
+    ],
+    "dsh": {
+      "client": {
+        "platform": "web",
+        "inject": [
+          "@deepseek-ai/dsh-client-ui-sidebar",
+          "@deepseek-ai/dsh-client-ui-layout",
+          "@deepseek-ai/dsh-client-ui-workspace",
+          "@deepseek-ai/dsh-client-ui-session",
+          "@deepseek-ai/dsh-client-ui-conversation"
+        ]
+      },
+      "bundle": {
+        "patch": "./cordis.patch.yml"
+      }
+    },
+    "engines": {
+      "dsh": ">=0.2.2-rc.1 <0.3.0"
+    },
+    "license": "MIT",
+    "author": "一起装 · 丁满信息科技（上海）有限公司",
+    "homepage": "https://github.com/maverikhe-cpu/zhuangzai-dsh-workbench",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/maverikhe-cpu/zhuangzai-dsh-workbench.git"
+    },
+    "bugs": {
+      "url": "https://github.com/maverikhe-cpu/zhuangzai-dsh-workbench/issues"
+    },
+    "keywords": [
+      "dsh-plugin",
+      "deepseek-harness",
+      "yiqizhuang",
+      "zhuangzai",
+      "construction",
+      "delivery-management",
+      "mcp",
+      "装仔",
+      "一起装",
+      "交付管理",
+      "家装",
+      "派工",
+      "验收"
+    ],
+    "scripts": {
+      "test": "node --test tests/test-auth.mjs && node tests/test-ui.mjs && python3 -m unittest discover -s tests -p \"test_*.py\""
+    }
+  },
+  "filename": "yiqizhuang-zhuangzai-dsh-workbench-0.5.0.tgz",
+  "integrity": "sha512-Kk2MjK763WcaY2CAezhADJQtQc4Xcnb1nqLNQ7B2GP4iZyFbwpAOz0Qch5TrinqCRPO3uzhFcf732J6pOD8OlQ==",
+  "shasum": "74f0dbd0c228ea15fe038b70fb3a853981cf090c",
+  "publishTimestamp": 1794320367,
+  "publishTime": "2026-11-10T14:19:27.718Z"
+}
