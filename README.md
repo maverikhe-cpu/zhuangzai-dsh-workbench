@@ -56,6 +56,10 @@ npm test
 
 本仓库是可独立安装的 DSH bundle，入口为 `cordis.patch.yml`，客户端界面为 `lib/client.js`，场景技能位于 `presets/zhuangzai/skills/`。
 
+## 社区市场
+
+已提交 [DSH Market](https://github.com/2BingLing/dsh-market/issues/367) 和 [开放插件市场](https://github.com/polang233/dsh-plugin-index/issues/411) 收录申请，当前等待处理。可先通过上面的 Git 命令安装。详情见 [社区收录进度](COMMUNITY.md)。
+
 ## 许可
 
 MIT，详见 [LICENSE](LICENSE)。一起装系统的数据访问需要用户自己的账号授权。
