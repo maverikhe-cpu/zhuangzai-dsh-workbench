@@ -37,6 +37,15 @@ const HTTP_TIMEOUT_MS = Number(process.env.YQZ_HTTP_TIMEOUT_MS || 30000);
 
 const b64url = (buf) => Buffer.from(buf).toString('base64url');
 
+// OAuth error parameters come from the callback URL and must be rendered as text.
+export function renderAuthorizationError(error, description = '') {
+  const escape = (value) => String(value).replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char]);
+  return `<h3>授权失败</h3><p>${escape(error)}</p><p>${escape(description)}</p>`;
+}
+
+
 export function log(...args) {
   console.error('[yqz-auth]', ...args);
 }
@@ -206,7 +215,7 @@ export async function login() {
         res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8' }).end(html);
       };
       if (err) {
-        reply(400, `<h3>授权失败</h3><p>${err}</p><p>${url.searchParams.get('error_description') || ''}</p>`);
+        reply(400, renderAuthorizationError(err, url.searchParams.get('error_description') || ''));
         server.close();
         reject(new Error(`authorization failed: ${err}`));
         return;
