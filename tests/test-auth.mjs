@@ -149,3 +149,13 @@ test('a sufficiently fresh token does not call the OAuth endpoint', async (t) =>
   assert.equal(f.requests.length, 0);
   assert.deepEqual(await f.read(), f.initial);
 });
+
+
+test('OAuth error callback renders both untrusted fields as text', async () => {
+  const { renderAuthorizationError } = await import('../connector/yqz-auth.mjs');
+  const html = renderAuthorizationError('<img src=x onerror=alert(1)>', '<script>alert("x&y")</script>\'');
+  assert.equal(html, '<h3>授权失败</h3><p>&lt;img src=x onerror=alert(1)&gt;</p><p>&lt;script&gt;alert(&quot;x&amp;y&quot;)&lt;/script&gt;&#39;</p>');
+  assert.ok(!html.includes('<script>'));
+  assert.ok(!html.includes('<img'));
+  assert.match(renderAuthorizationError('access_denied', '用户取消'), /access_denied.*用户取消/);
+});
