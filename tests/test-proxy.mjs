@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-async function fixture(t, respond, overrides={}) {
+async function fixture(t, respond, overrides={}, callName='list_projects') {
  const dir=await mkdtemp(path.join(os.tmpdir(),'yqz-proxy-'));
  const token=path.join(dir,'token.json');
  await writeFile(token,JSON.stringify({access_token:'fake-access',refresh_token:'fake-refresh',expires_at:Date.now()+3600000}));
@@ -16,7 +16,7 @@ async function fixture(t, respond, overrides={}) {
  child.stderr.resume();
  t.after(async()=>{child.kill();server.closeAllConnections();await new Promise(r=>server.close(r));await rm(dir,{recursive:true,force:true});});
  const result=new Promise((resolve,reject)=>{let buffer='';const timeout=setTimeout(()=>reject(new Error('No proxy response')),5000);child.stdout.on('data',chunk=>{buffer+=chunk;const line=buffer.split('\n')[0];try{const v=JSON.parse(line);clearTimeout(timeout);resolve(v);}catch{}});child.on('exit',code=>{if(code!==null&&code!==0){clearTimeout(timeout);reject(new Error(`proxy exited ${code}`));}});});
- child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'list_projects',arguments:{pageSize:5}}})+'\n');
+ child.stdin.write(JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:callName,arguments:{pageSize:5}}})+'\n');
  return {result,count:()=>count};
 }
 test('a transport failure is retried once and successful result preserved',async t=>{
@@ -30,4 +30,10 @@ test('persistent network failure stops after two attempts and signals exhausted 
 test('small total budget prevents another retry after a slow request',async t=>{
  const start=Date.now();const f=await fixture(t,()=>{}, {YQZ_ATTEMPT_TIMEOUT_MS:'100',YQZ_TOTAL_TIMEOUT_MS:'150'});
  const r=await f.result;assert.equal(f.count(),1);assert.equal(r.error.data.retryExhausted,true);assert.ok(Date.now()-start<1000);
+});
+
+for (const sse of [false,true]) test(`acceptance interpretation reaches the client over ${sse ? 'SSE' : 'JSON'}`,async t=>{
+ const raw={jsonrpc:'2.0',id:1,result:{content:[{type:'text',text:JSON.stringify({summary:{hasAcceptancePlan:false,pendingCount:0,acceptedCount:4}})}]}};
+ const f=await fixture(t,(_req,res)=>res.writeHead(200,{'content-type':sse?'text/event-stream':'application/json'}).end(sse?`data: ${JSON.stringify(raw)}\n\n`:JSON.stringify(raw)),{},'list_pending_acceptances');
+ const r=await f.result;assert.equal(r.result.content[0].text,raw.result.content[0].text);assert.match(r.result.content[1].text,/不能判为“无漏验”/);assert.equal(f.count(),1);
 });

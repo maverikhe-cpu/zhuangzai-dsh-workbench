@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { annotateToolResponse } from './tool-notes.mjs';
 /**
  * 一起装 (yqz) MCP stdio ↔ Streamable HTTP 代理。
  *
@@ -122,11 +123,12 @@ async function postToRemote(message) {
   }
 }
 
-function parseSseText(text, id) {
+function parseSseText(text, message) {
   let dataLines = [];
   const flush = () => {
     if (dataLines.length) {
-      emitRaw(dataLines.join('\n'));
+      const raw = dataLines.join('\n');
+      try { emit(annotateToolResponse(message, JSON.parse(raw))); } catch { emitRaw(raw); }
       dataLines = [];
     }
   };
@@ -141,7 +143,7 @@ function parseSseText(text, id) {
     if (m) dataLines.push(m[1]);
   }
   flush();
-  void id;
+  void message;
 }
 
 async function pumpResponse(res, message) {
@@ -151,7 +153,7 @@ async function pumpResponse(res, message) {
   }
   const contentType = (res.headers.get('content-type') || '').toLowerCase();
   if (contentType.includes('text/event-stream')) {
-    await res.text().then((text) => parseSseText(text, message.id));
+    await res.text().then((text) => parseSseText(text, message));
     return;
   }
   const text = await res.text();
@@ -180,8 +182,8 @@ async function pumpResponse(res, message) {
   if (!text.trim()) return;
   try {
     const parsed = JSON.parse(text);
-    if (Array.isArray(parsed)) parsed.forEach(emit);
-    else emit(parsed);
+    if (Array.isArray(parsed)) parsed.forEach(item => emit(annotateToolResponse(message, item)));
+    else emit(annotateToolResponse(message, parsed));
   } catch {
     log('无法解析响应体:', text.slice(0, 200));
   }

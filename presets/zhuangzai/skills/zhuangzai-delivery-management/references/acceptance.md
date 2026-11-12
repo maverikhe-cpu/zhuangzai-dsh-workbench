@@ -1,5 +1,9 @@
 # 线上验收跟进
 
+## 工作台首轮
+
+先查待业主确认或需内部跟进的报告，首批最多20份、输出最多5份；再对其中最多3个不同工地查待验节点。总计最多6次业务调用，不逐个检查所有报告对应工地。hasAcceptancePlan=false 时只表述该工地未启用节点验收计划，即使 pendingCount=0 也不能写“无漏验”或“内部验收动作全部完成”。acceptedCount 只写已提交报告数，不能当作审核或业主通过数；不能推广成公司未启用计划；未取全报告时只在已返回报告中排序，不称全公司等待最久；最多5个reportId，不将同工地多份报告合并后再额外凑5行。没有查全时不输出公司漏验总量。需审核细节时优先替代一个下钻名额，不叠加所有路径。
+
 `list_acceptance_reports` 查报告及统计；`list_pending_acceptances` 查已确定工地的漏验节点；具体报告再读 `get_acceptance_report_detail` 和 `get_acceptance_approval_progress`。先批量定位，避免为全公司每份报告查详情。工具缺失时按 [回退表](tool-fallbacks.md)。
 
 ## 三类状态分开

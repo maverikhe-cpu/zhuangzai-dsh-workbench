@@ -103,3 +103,33 @@ dispatch.props.onClick();
 choice(render(), '继续当前会话').props.onClick();
 assert.ok(render().some((node) => node.props.role === 'alert'));
 console.log('工作台会话选择、草稿保护及异常处理检查通过');
+
+// Every visible entry must preserve its exact question and the 装仔 preset.
+selectedId = 'existing';
+draftResult = 'applied';
+let checkedEntries = 0;
+for (const label of ['管工地','管人员','管问题','管工期','管质量','管现场','管设备','管客户']) {
+  const card = render().find(node => node.type === 'button' && node.props['aria-label'] === label);
+  assert.ok(card, label);
+  card.props.onClick();
+  const questions = render().filter(node => node.type === 'button' && node.props.className === 'zz-question');
+  assert.ok(questions.length >= 2, label);
+  for (const question of questions) {
+    const prompt = question.children.find(child => typeof child === 'string');
+    question.props.onClick();
+    choice(render(), '新建会话').props.onClick();
+    assert.equal(session.agentPreset, 'zhuangzai', label);
+    assert.equal(session.prompt, prompt, label);
+    assert.equal(session.whenDraftExists, 'append');
+    checkedEntries++;
+  }
+}
+for (const feature of render().filter(node => node.type === 'button' && node.props.className === 'zz-feature')) {
+  feature.props.onClick();
+  choice(render(), '新建会话').props.onClick();
+  assert.equal(session.agentPreset, 'zhuangzai');
+  assert.ok(session.prompt.length > 10);
+  checkedEntries++;
+}
+assert.equal(checkedEntries, 22);
+console.log(`工作台全部 ${checkedEntries} 个问题入口的预设、问题和草稿路由检查通过`);

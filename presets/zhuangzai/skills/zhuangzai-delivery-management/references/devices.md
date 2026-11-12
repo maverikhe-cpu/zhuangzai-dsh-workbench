@@ -1,5 +1,9 @@
 # 设备运营
 
+## 工作台首轮
+
+当前离线关注：get_device_count_summary 取快照，再用 list_device_inventory(bound=true,online=false,page=1,pageSize=20)列候选，最多展示5台。不为此问题查询30天在线率、领用或绑定历史；需要持续离线时长且有最后上下线时间时直接计算。仅有明确历史分析需求才读期间工具，不把缺历史记录当作从未在线。
+
 先分清当前台账、期间在线表现和设备流转。公司级少数计数优先 `get_device_count_summary`；明细或部门交叉分析用 `list_device_inventory`；单工地画面用 `list_cameras`；历史在线率与流转分别使用对应工具。缺失时按 [回退表](tool-fallbacks.md)。
 
 ## 当前快照

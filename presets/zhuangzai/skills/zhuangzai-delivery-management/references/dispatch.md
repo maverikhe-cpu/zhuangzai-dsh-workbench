@@ -1,5 +1,9 @@
 # 派工分析
 
+## 工作台首轮
+
+默认入口按本周计划进场日期查询，第一次 get_dispatch_gap_summary 就传 entryDateStart/entryDateEnd，include=[totals,byProject,byTrade]、groupTopN=5。用户说提交日期才使用 submittedStartDate/submittedEndDate；未指定时间的一般派工查询先选本周计划进场并说明，不先查全历史。合计最多6次业务调用，首轮不拉全部申请、记录或工人池。跨申请累计用人次，不能写成独立工人数；缺口逐申请正值求和，不能用全局需求减已派替代。
+
 先区分用户要看缺口、人员安排、操作过程还是候选工人，再选择对应路径。范围和公司复用当前确认信息；派工人数、面积和日期定义按 [派工口径](dispatch-data.md)。工具缺失或失败统一按 [回退表](tool-fallbacks.md)，不另开连接或反复重建授权。
 
 ## 缺口：汇总优先
