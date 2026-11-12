@@ -1,20 +1,21 @@
 # 线上验收跟进
 
-以当前授权公司和工地为范围，用 `list_acceptance_reports` 查报告列表；已确定的工地用 `list_pending_acceptances` 看节点是否漏验；具体报告按需查 `get_acceptance_report_detail` 和 `get_acceptance_approval_progress`。用户未指定工地时先用列表或有限候选定位，避免逐个遍历大量工地；统计须取完整分页并说明权限范围。
+`list_acceptance_reports` 查报告及统计；`list_pending_acceptances` 查已确定工地的漏验节点；具体报告再读 `get_acceptance_report_detail` 和 `get_acceptance_approval_progress`。先批量定位，避免为全公司每份报告查详情。工具缺失时按 [回退表](tool-fallbacks.md)。
 
-- 节点清单 `pending` 是已到验收时机但无已提交报告，`unfinished` 尚未到时机；`accepted` 只表示已有提交报告，不等于审核通过或业主同意。`hasAcceptancePlan=false` 表示未启用节点验收。draftCount 仅当前用户个人草稿，不代表公司草稿。
-- 验收和审核是两套状态：业主待确认/同意/拒绝与审核待处理/通过/驳回各自展示。查待办应区分等待谁、当前轮次和状态，不把审核通过等同业主验收完成。
-- `pending` 表示当前待业主验收；如果审核进度 `items` 为空且报告未返回 `approvalStatus`，不能断言已经有审核人或审核通过记录。无审核流和已完成审核均可能进入业主确认阶段；具体审核经历以该报告的审核进度及字段为准。
-- 现场验收日期、报告提交时间和终审通过时间是三个不同时间：分别使用 `acceptanceStartDate/acceptanceEndDate`、`submitStartDate/submitEndDate`、`approvalStartDate/approvalEndDate` 筛选；统计期间提交量不要使用现场验收日期代替。无审核流或终审未完成时，相关字段可能省略，不当作零或自动通过。以上筛选语义以实时工具定义为准。
-- 审核历史的提交、审核、驳回和重提交按轮次区分；终审字段未返回时不把旧轮审核通过当最终通过。审核角色不是确定的人，候选审核人不等于已处理人。
-- 不合格检查项筛 `checkResult=unqualified`，逐项列名称、标准、备注和状态。验收明细及审核驳回照片的 photoId 只是引用，不是可直接打开的图片链接。
-- 输出工地、节点/报告、当前状态、待办对象（能确认时）和下一步，区分数据为空、无权和调用失败；不改验收或审核结果。
+## 三类状态分开
 
-## 批量与时长
+- 节点 pending：已到验收时机但无已提交报告；unfinished：尚未到时机；accepted：已有提交报告，**不等于审核通过或业主同意**。hasAcceptancePlan=false 表示未启用节点验收，draftCount 仅当前用户个人草稿。
+- 报告 acceptanceStatus 是业主维度（pending/agree/refuse）；approvalStatus 是内部审核维度。不要把同名 pending 跨字段混用，审核通过也不等于业主验收完成。
+- 审核时间线按提交/驳回/重提交轮次读取；旧轮通过不代表新轮终审。审核角色、候选人和实际处理人区分。items=[] 只代表未返回审核记录，不能据此推断公司无审核流程或已终审。
 
-取得完整报告后，按报告稳定ID核对、按 projectId 和状态一次分组；无需再对每种状态重复查 total，除非数据不一致或用户要求对账。待业主确认时长需该轮进入待确认状态的时间；只有 submittedAt 时称“提交距今天数”，不能称“业主等待天数”。pending 本身不能证明经过终审。限定日期查询中审核中为零，仅说明该批报告当前无审核中记录，不推断全公司审核无积压。全公司漏验需节点范围查询，不能由已提交报告反推；未支持批量时先明确范围与成本。参见 [大任务方法](performance.md)。
+## 日期与等待
 
-## 交付前检查判断依据
+现场验收日期、报告提交时间和终审通过时间分别使用 acceptanceStartDate/acceptanceEndDate、submitStartDate/submitEndDate、approvalStartDate/approvalEndDate（以实时 schema 为准）。只按某月提交筛选，描述“这批报告截至查询时的状态”，不代表全公司积压或当月闭环事件。
 
-- 没有明确验收期限、客户约定时限或工具超期标记时，即使提交已30天或更久，也只写“提交较久，建议优先跟进”，不写超期/违规/超时。不要把提交年龄推断为业主等待时长。
-- 审核进度 items=[] 只说明本次未返回审核记录；不能据此断言“无审核流”“没有配置审批”或“终审已过”。只有显式配置/字段证据才能确定，报告可直接按 pending 写待业主确认，不必为此扩查每份报告。
+只有 submittedAt 时计算“提交距今天数”；业主等待时长需要本轮进入待业主确认状态的时间。没有期限、客户约定或明确超期字段时用“提交较久，建议优先跟进”，不判超期。
+
+## 结果
+
+完整列表按报告 ID 核对、按 projectId 和两维状态分组。全公司漏验需要节点覆盖，不能从已有报告反推；成本高时先交付明确范围的节点清单。不合格检查项用 checkResult=unqualified；photoId 是图片引用，不直接拼 URL。
+
+给出工地、节点/报告、当前待办、已确认的处理对象和下一步；批量性能见 [性能](performance.md)。

@@ -1,6 +1,6 @@
 {
   "name": "@yiqizhuang/zhuangzai-dsh-workbench",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "private": false,
   "description": "装仔交付管理工作台：角色、场景技能和一起装 MCP",
   "type": "module",

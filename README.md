@@ -8,15 +8,15 @@ Zhuangzai Delivery Workbench — an MIT-licensed DSH plugin for construction del
 
 ## 安装与登录
 
-### 社区开源版 0.5.1
+### 社区开源版 0.5.2
 
 ```sh
-dsh plugin --profile desktop add 'git+https://github.com/maverikhe-cpu/zhuangzai-dsh-workbench.git#v0.5.1'
+dsh plugin --profile desktop add 'git+https://github.com/maverikhe-cpu/zhuangzai-dsh-workbench.git#v0.5.2'
 ```
 
 安装后按 DSH 提示启用插件或重启，再打开侧栏的「装仔工作台」。本版本同步派工缺口汇总、项目经理负荷汇总和设备台账规则。自然语言提问自动选择场景，优先汇总取数，再下钻重点明细。
 
-### 一起装索引版 0.5.1
+### 一起装索引版 0.5.2
 
 
 本版适用于 DeepSeek Harness 桌面版 0.2.2-rc.1，需要 Node.js 22 或更高版本。打开「插件」，在实验性插件中启用「自定义插件索引」，进入「发现」，添加索引 `https://plugins.1qizhuang.win/index.json`，搜索「装仔」并安装。安装完成后如界面提示重启，请重启 DeepSeek Harness。
@@ -58,7 +58,7 @@ npm test
 
 ## 社区市场
 
-已提交 [DSH Market](https://github.com/2BingLing/dsh-market/issues/367) 和 [开放插件市场](https://github.com/polang233/dsh-plugin-index/issues/411) 收录申请，当前等待处理。可先通过上面的 Git 命令安装。详情见 [社区收录进度](COMMUNITY.md)。
+已提交 [DSH Market](https://github.com/2BingLing/dsh-market/issues/367) 和 [开放插件市场](https://github.com/polang233/dsh-plugin-index/issues/411) 收录申请，v0.5.1 已获开放插件市场确认收录，新版更新继续沿用原申请。可先通过上面的 Git 命令安装。详情见 [社区收录进度](COMMUNITY.md)。
 
 ## 许可
 

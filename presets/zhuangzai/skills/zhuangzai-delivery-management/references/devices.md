@@ -1,31 +1,26 @@
-# 摄像头与设备运营
+# 设备运营
 
-确定用户想看当前状态、历史在线表现还是设备流转，以及公司、时间和工地范围；使用当前授权的一起装 MCP，先看实时工具定义和返回。当前资产台账查 `list_device_inventory`，历史在线表现查 `list_device_online_rate`，流转查 `list_device_binding_records`、`list_device_claim_records`；单工地摄像头与画面查 `list_cameras`。批量统计须按工具分页取完整范围并核对。
+先分清当前台账、期间在线表现和设备流转。公司级少数计数优先 `get_device_count_summary`；明细或部门交叉分析用 `list_device_inventory`；单工地画面用 `list_cameras`；历史在线率与流转分别使用对应工具。缺失时按 [回退表](tool-fallbacks.md)。
 
-## 当前设备台账
+## 当前快照
 
-- `list_device_inventory` 每行一台权限范围内的摄像头设备，`page` 从 1 起，`pageSize` 最大 1000。只需计数时，按状态、领用 `claimed`、绑定 `bound`、在线 `online`、SD 卡状态等筛选并以小页读取同范围 `total`，无需拉取全部明细；需要明细或本地分组时分页取全并核对。序列号是模糊筛选，匹配后再精确核对。
-- 经实测可按以下口径与 PC 页面快捷统计对照：设备总数=未筛选；库内闲置=claimed=false；已领用=claimed=true；库外闲置=claimed=true 且 bound=false；已领用已绑工地=claimed=true 且 bound=true；在线/离线=bound=true 且 online=true/false；在线未绑工地=bound=false 且 online=true；SD 卡异常=sdCardStatus=exception。对其他公司或权限范围复核页面定义。只按 online 筛选覆盖未绑定设备，不等于 PC 页面已绑设备在线统计。
-- `status` 包括 normal、in_transit、expired、under_repair、damaged、lost、scrapped；未激活状态上游不可直接筛选，需不传 status 取全后本地筛选。`ownerViewable` 是绑定工地的业主可看直播开关，未绑定设备缺键不等于 false；设备状态不等于在线、领用或绑定状态。`claimedDate`、`validStartDate`、`validEndDate` 是日期；`lastOnlineStatusChangedAt` 是最近上下线时刻。
+- 快照工具无筛选参数，覆盖当前权限公司范围。deviceNumber=actionDeviceNumber+unactionDeviceNumber=bindingDeviceNumber+unbindingDeviceNumber。
+- onlineNumber/offlineNumber 是**已绑定工地**的在线/离线；unbindingOnlineNumber 是未绑定但在线。三项之和漏掉未绑定离线，不能当设备总量或在线率分母。
+- unbindingProjectNumber 实际仍是未绑定的设备数；receivedNumber/bindingNumber 是别名，不重复相加。
+- 台账按所需筛选取 total：claimed=false 未领用；claimed=true 已领用；claimed=true 且 bound=false 库外闲置；PC 在线/离线用 bound=true 与 online=true/false 组合。需要交叉分布时取完整台账一次本地分组，不重复请求各格总数。
+- 筛选参数 online 与返回字段 isOnline 区分。未知在线/绑定值单列。只有确认无未知状态时，已绑定在线数加离线数才应等于已绑定总数；否则先单列差额并核查，不能强行视为一致或默认为离线。未激活不支持直接 status 过滤时取全后筛；设备状态、领用、绑定、在线是独立维度。
+- ownerViewable 为绑定工地的业主直播开关，未绑定时缺键不等于 false；lastOnlineStatusChangedAt 为最近上下线时刻。型号不代表采购批次；在线未领用不证明设备可立即调拨。
 
-多设备的领用/归还分析：先按需要的日期范围用 `list_device_claim_records` 批量分页（当前每页上限 1000），再在本地以 deviceId 或完整序列号精确分组，不为每台设备逐次请求。仅问一台设备时可按序列号过滤，但该过滤是模糊匹配，须再精确核对。核对 total、各页数和失败，保留事件流水；若要推断当前领用状态，按足够历史和同日事件不确定性处理，不能仅以月内流水替代当前台账。
+## 当前在绑与历史
 
-## 在线与现场覆盖
+当前在绑用台账 bound=true，单工地用摄像头列表。绑定历史含多段，不能以“没有 unboundAt”判断在绑。确需从完整历史核对时，只取 isUnbound 严格为 false 的行、按稳定设备 ID 去重；缺值或多条当前段单列冲突。按绑定开始日期查某月会遗漏更早绑定至今的设备。
 
-- 单工地眼下状态取 `list_cameras.isOnline`，最新画面只在 `hasSnapshot=true` 且有 coverImageUrl 时提供；无抓拍时间字段时称最近一次抓拍，不推断实时。历史设备在线率查 `list_device_online_rate`：周期用 `type=period`，日趋势用 `day`。跨设备总体在线率以在线秒数之和除应在线秒数之和；零分母单列，不能平均百分比，也不能用 day 行相加替代 period。
-- 单行应在线秒数是设备绑定区间与统计桶的交集，不是整个查询窗口时长；不能只凭单行秒数反推窗口结束时刻、全体设备分母或完整覆盖。报备回加可能使在线率达 100% 时仍存在离线秒数，因此不能说该设备从未离线。
-- 排查低在线表现时给设备标识、统计窗口、在线率、应在线时间和所属工地（可可靠关联时），并提出核实网络、电源、绑定和报备等方向，不将原因猜成事实。isOnline 与周期在线率不是同一指标。
+`list_device_binding_records` 是绑定/解绑；`list_device_claim_records` 只含领用/归还，不能互相替代。按日期批量获取后精确匹配设备 ID 或完整序列号，不逐设备查询。领用流水只有日精度、无独立 ID，不能推断同日先后或擅自删除同日重复事件；所查历史没后续绑定不证明当前库存/位置或已归还。
 
-## 流转与周转
+## 期间在线率与现场画面
 
-- 绑定历史的时间过滤按绑定时间，领用台账按领用/归还日期；指定一段时间时可能遗漏窗口前的最新事件。先按设备序列号精确核对并读取足够历史，以绑定/解绑时间、事件类型及先后关系梳理历程；缺失解绑时间、同日多条或事件不完整时标记无法确认。
-- 找“解绑后未重新绑定”的候选：同一序列号的解绑事件后，在所查可见历史中没有更新的绑定事件；分别检查数据范围和查询是否完整。只能称“未查到后续绑定，待核实”，不能断定设备闲置、库存、当前物理位置或可用，也不能把没有后续领用记录当成设备已归还。
-- 领用归还仅含两类动作；日期只有日精度，记录无独立 ID，按设备×动作×日期复合核对，重复记录先核实，不能据此恢复日内顺序。设备绑定、领用、库存是不同过程，不按时间接近强行拼接。
-- 看到解绑与同日归还只能称记录上有归还，不足以判定完整生命周期闭合或无需跟进；同日先后及当前库存须有独立依据。
-- 输出管理结论、可核查清单、事件时间和下一步；缺失、空结果和调用错误分开。只读取和分析，不变更绑定或发送消息。
+`list_device_online_rate` 周期用 type=period，日趋势才用 day。总体在线率=匹配范围的在线秒数和/应在线秒数和；零分母单列，不平均百分比，不将 day 桶相加替代 period。分母是绑定区间与统计桶交集，报备回加可能使 100% 仍有离线秒数。
 
-## 大量设备统计
+期间结果按设备绑定段返回，同设备可多行；按设备标识去重计算参与统计设备数，不能代替当前在绑数。在线率和 isOnline 快照不混用。
 
-完整台账按 deviceId 核对后，用返回字段 `isOnline`（不是筛选参数 `online`）和 `projectId` 等计算交叉表；未知在线值、缺失绑定信息单列，不强制转成 false。已取得全量明细时不再为四格统计重复发四次 total 请求。字段含义不明先核对实际 schema。周期结果的设备段行数不等于去重设备数，按稳定设备标识计算设备数量。大响应文件与时间预算按 [大任务方法](performance.md) 执行。
-
-设备异常的事实与原因分开：离线设备分散在多个工地，只能说明涉及多个工地，不能排除同一网络/平台故障；型号不是批次或新旧年份。在线未绑定/未领用不证明设备完好可立即调度，应写“可核实是否可调配”。型号占比必须从本次完整数据计算，不抄旧统计或凭数量估算。
+画面仅在 hasSnapshot=true 且有 coverImageUrl 时展示；没有抓拍时间只称最近一次抓拍，不称直播。异常先给设备/工地和可核对事实，再建议排查网络、电源或绑定；分散工地离线不排除共同故障。
