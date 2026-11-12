@@ -14,9 +14,10 @@ import { getAccessToken, refreshAccessToken, MCP_URL } from './yqz-auth.mjs';
 
 const ENDPOINT = process.env.YQZ_MCP_URL || MCP_URL;
 const DEFAULT_PROTOCOL_VERSION = '2025-06-18';
-const REQUEST_TIMEOUT_MS = Number(process.env.YQZ_ATTEMPT_TIMEOUT_MS || 20_000);
+const REQUEST_TIMEOUT_MS = Number(process.env.YQZ_ATTEMPT_TIMEOUT_MS || 30_000);
 // 一起装的 CDN 边缘节点偶尔会超时/重置连接，只重试网络层错误（工具均为只读，重复调用安全）。
-const MAX_NETWORK_RETRIES = 4;
+const MAX_NETWORK_RETRIES = 1;
+const TOTAL_TIMEOUT_MS = Number(process.env.YQZ_TOTAL_TIMEOUT_MS || 45_000);
 
 let sessionId = null;
 let protocolVersion = DEFAULT_PROTOCOL_VERSION;
@@ -47,6 +48,7 @@ function emitRaw(text) {
 }
 
 async function postToRemote(message) {
+  const deadline = Date.now() + TOTAL_TIMEOUT_MS;
   let netAttempts = 0;
   let authAttempts = 0;
   let sessionResets = 0;
@@ -71,11 +73,11 @@ async function postToRemote(message) {
         method: 'POST',
         headers,
         body: JSON.stringify(message),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: AbortSignal.timeout(Math.max(1, Math.min(REQUEST_TIMEOUT_MS, deadline - Date.now()))),
       });
     } catch (err) {
       netAttempts += 1;
-      if (netAttempts <= MAX_NETWORK_RETRIES) {
+      if (netAttempts <= MAX_NETWORK_RETRIES && Date.now() + 600 < deadline) {
         const wait = Math.min(4000, 600 * 2 ** (netAttempts - 1));
         log(
           `网络错误（第 ${netAttempts}/${MAX_NETWORK_RETRIES + 1} 次）: ${err.cause?.code || err.message}，${wait}ms 后重试…`,
@@ -83,9 +85,11 @@ async function postToRemote(message) {
         await sleep(wait);
         continue;
       }
-      throw new Error(
-        `调用一起装 MCP 失败（CDN 边缘超时/连接重置，已重试 ${MAX_NETWORK_RETRIES} 次）: ${err.cause?.code || err.message}`,
+      const exhausted = new Error(
+        `一起装连接暂不可用；代理已重试耗尽（最多 ${MAX_NETWORK_RETRIES} 次），请停止本轮连接调用，不换业务工具重试。原因: ${err.cause?.code || err.message}`,
       );
+      exhausted.retryExhausted = true;
+      throw exhausted;
     }
 
     if (res.status === 401) {
@@ -221,7 +225,7 @@ async function main() {
         emit({
           jsonrpc: '2.0',
           id: message.id,
-          error: { code: -32603, message: String(err.message || err) },
+          error: { code: -32603, message: String(err.message || err), ...(err.retryExhausted ? { data: { retryable: false, retryExhausted: true } } : {}) },
         });
       }
     });

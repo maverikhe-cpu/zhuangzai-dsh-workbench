@@ -1,6 +1,6 @@
 {
   "name": "@yiqizhuang/zhuangzai-dsh-workbench",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "private": false,
   "description": "装仔交付管理工作台：角色、场景技能和一起装 MCP",
   "type": "module",
@@ -64,6 +64,6 @@
     "验收"
   ],
   "scripts": {
-    "test": "node --test tests/test-auth.mjs && node tests/test-ui.mjs && python3 -m unittest discover -s tests -p \"test_*.py\""
+    "test": "node --test tests/test-auth.mjs tests/test-proxy.mjs && node tests/test-ui.mjs && python3 -m unittest discover -s tests -p \"test_*.py\""
   }
 }
