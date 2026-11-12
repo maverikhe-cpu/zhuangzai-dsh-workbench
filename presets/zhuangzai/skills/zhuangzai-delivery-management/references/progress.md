@@ -1,5 +1,9 @@
 # 施工进度与工期分析
 
+## 工作台首轮
+
+“哪些工地落后”默认快速筛查：list_projects(status=in_progress,overdue=true,page=1,pageSize=20)，再用这批projectId调用一次批量阶段对比，最多展示5个实际落后的对象。说明本次候选筛查范围；节点逾期只是选候选，不等于阶段落后。候选没有可比较计划就如实回答，不自动翻遍全公司，也不委派助手。用户明确要求全公司完整清单再制定全量分页计划。
+
 从用户的工地或部门范围出发，先取 `list_projects`，按需批量查 `list_project_stage_progress`；对重点工地再查 `list_plan_tasks`、`list_stage_history`、`list_progress_updates`、`list_stage_detections`、`list_schedule_adjustments` 和 `list_work_stoppage_filings`。先获取实时工具参数；同工地使用 projectId 关联。大客户先筛选风险工地再查单工地明细，结论须注明筛选范围，未取全不能称全量排名。
 
 - 按 [公司管理口径](company-policy.md) 读取当前公司的完工规则，缺少约定先确认；不默认以末位或名称判完工。系统状态和施工阶段原样分别展示。

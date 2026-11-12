@@ -1,3 +1,14 @@
+# 0.5.4
+
+- 月报区分非冲突完工数、冲突桶及期间派工缺口；保留原始工具数据并附精确解读。
+
+- 工作台首轮问题补充日期、重点数量和展开范围；派工首次查询即限定计划进场周。
+- 分析任务先读取对应场景方法；“我负责”未识别身份时先确认，不将全公司可见数据视为个人工地。
+- 普通首轮最多 6 次业务调用，月报简报最多 10 次，不自动启动助手扫描全公司。
+- 现场分析限制工地及图片数量；故障不猜域名、不搜索本机配置；抽查无计划不推广为公司整体。
+- 在原始 MCP 结果旁补充未启用验收计划、已提交报告、首批分页的解释，不改变原始字段；JSON/SSE 两种响应均覆盖回归。
+- 增加全部 22 个问题入口的前端路由回归。
+
 # 0.5.3
 
 - 简单列表与字段查询走最短路径；不为公司名调用派工等跨模块汇总或扫描本地授权文件。
@@ -34,3 +45,4 @@
 - Add public repository metadata, searchable keywords and installation documentation.
 - Include the existing mascot asset and isolated OAuth / workbench interaction regression tests.
 - Runtime code, 10 skills and agent presets are unchanged from the public 0.4.2 download.
+
